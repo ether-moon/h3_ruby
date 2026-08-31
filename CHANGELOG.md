@@ -11,6 +11,7 @@ We track the MAJOR and MINOR version levels of Uber's H3 project (https://github
 ### Changed
 - **Breaking:** replace the bundled H3 3.7 library with official Uber H3 `v4.5.0` at commit `1b536c34225191ba24a75a840f634d4a48c3b206`.
 - Preserve the established Ruby API names while adapting every native binding to the H3 v4 error-code and output-pointer ABI.
+- Make `h3_set_to_linked_geo` raise `H3::MultiPolygonError` instead of silently dropping disconnected polygons; its single-polygon and empty-set return shapes are unchanged.
 - Build and load a private vendored H3 shared library instead of relying on a system `libh3`.
 - Test Ruby 3.4 and Ruby 4.0.6, with Ruby 4.0.6 covering `x86_64-linux-gnu`, `aarch64-linux-gnu`, and `arm64-darwin`.
 - Preserve the bundled H3 Apache-2.0 license and notice alongside the Ruby binding's MIT license.

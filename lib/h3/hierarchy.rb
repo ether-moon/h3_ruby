@@ -135,7 +135,7 @@ module H3
     #     613196840447246335
     #   ]
     #
-    # @raise [RuntimeError] Couldn't attempt to compact given H3 indexes.
+    # @raise [H3::Error] The native H3 operation failed.
     #
     # @return [Array<Integer>] Compacted set of H3 indexes.
     def compact(h3_set)
@@ -168,7 +168,7 @@ module H3
     #     617700440073830399, 617700440074092543, 617700440074354687
     #   ]
     #
-    # @raise [RuntimeError] Couldn't attempt to umcompact H3 indexes.
+    # @raise [H3::Error] The native H3 operation failed.
     #
     # @return [Array<Integer>] Uncompacted set of H3 indexes.
     def uncompact(compacted_set, resolution)

@@ -135,6 +135,11 @@ RSpec.describe H3 do
     it "has a compacted size of 73" do
       expect(compact.size).to eq 73
     end
+
+    it "raises an identifiable H3 error for invalid cells" do
+      expect { H3.compact(["fffffffffffffff".to_i(16)]) }
+        .to raise_error(H3::Error) { |error| expect(error.name).to eq("E_CELL_INVALID") }
+    end
   end
 
   describe ".uncompact" do
@@ -161,7 +166,10 @@ RSpec.describe H3 do
       let(:resolution) { 8 }
 
       it "raises error" do
-        expect { uncompact }.to raise_error(ArgumentError)
+        expect { uncompact }.to raise_error(H3::Error) { |error|
+          expect(error.code).to eq(12)
+          expect(error.name).to eq("E_RES_MISMATCH")
+        }
       end
     end
   end

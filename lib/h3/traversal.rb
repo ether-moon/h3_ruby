@@ -42,15 +42,14 @@ module H3
     #
     # This value is simply `h3_distance(origin, destination) + 1` when a line is computable.
     #
-    # Returns a negative number if a line cannot be computed e.g.
-    # a pentagon was encountered, or the hexagons are too far apart.
-    #
     # @param [Integer] origin Origin H3 index
     # @param [Integer] destination H3 index
     #
     # @example Derive the number of hexagons present in a line between two H3 indexes.
     #   H3.line_size(617700169983721471, 617700169959866367)
     #   6
+    #
+    # @raise [H3::Error] A line cannot be computed between the indexes.
     #
     # @return [Integer] Number of hexagons found between indexes.
     def line_size(origin, destination)
