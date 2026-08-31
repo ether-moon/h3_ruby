@@ -17,7 +17,11 @@ module H3
     #   604189371209351167
     #
     # @return [Integer] H3 index of parent hexagon.
-    attach_function :parent, :h3ToParent, [:h3_index, Resolution], :h3_index
+    def parent(h3_index, parent_resolution)
+      Bindings::Private.call_with_out(
+        :uint64, :cell_to_parent, h3_index, parent_resolution
+      )
+    end
 
     # @!method max_children(h3_index, child_resolution)
     #
@@ -31,7 +35,15 @@ module H3
     #    49
     #
     # @return [Integer] Maximum number of child hexagons possible at given resolution.
-    attach_function :max_children, :maxH3ToChildrenSize, [:h3_index, Resolution], :int
+    def max_children(h3_index, child_resolution)
+      if Resolution.valid?(child_resolution) && child_resolution < resolution(h3_index)
+        return 0
+      end
+
+      Bindings::Private.call_with_out(
+        :int64, :cell_to_children_size, h3_index, child_resolution
+      )
+    end
 
     # @!method center_child(h3_index, child_resolution)
     #
@@ -46,7 +58,11 @@ module H3
     #    622203769609814015
     #
     # @return [Integer] H3 index of center child hexagon.
-    attach_function :center_child, :h3ToCenterChild, [:h3_index, Resolution], :h3_index
+    def center_child(h3_index, child_resolution)
+      Bindings::Private.call_with_out(
+        :uint64, :cell_to_center_child, h3_index, child_resolution
+      )
+    end
 
     # Derive child hexagons contained within the hexagon at the given H3 index.
     #
@@ -63,8 +79,12 @@ module H3
     # @return [Array<Integer>] H3 indexes of child hexagons.
     def children(h3_index, child_resolution)
       max_children = max_children(h3_index, child_resolution)
+      return [] if max_children.zero?
+
       out = H3Indexes.of_size(max_children)
-      Bindings::Private.h3_to_children(h3_index, child_resolution, out)
+      Bindings::Private.check_error(
+        Bindings::Private.cell_to_children(h3_index, child_resolution, out)
+      )
       out.read
     end
 
@@ -88,9 +108,9 @@ module H3
     # @return [Integer] Maximum size of uncompacted set.
     def max_uncompact_size(compacted_set, resolution)
       h3_set = H3Indexes.with_contents(compacted_set)
-      size = Bindings::Private.max_uncompact_size(h3_set, compacted_set.size, resolution)
-      raise(ArgumentError, "Couldn't estimate size. Invalid resolution?") if size.negative?
-      size
+      Bindings::Private.call_with_out(
+        :int64, :uncompact_cells_size, h3_set, compacted_set.size, resolution
+      )
     end
 
     # Compact a set of H3 indexes as best as possible.
@@ -121,9 +141,9 @@ module H3
     def compact(h3_set)
       h3_set = H3Indexes.with_contents(h3_set)
       out = H3Indexes.of_size(h3_set.size)
-      failure = Bindings::Private.compact(h3_set, out, out.size)
-
-      raise "Couldn't compact given indexes" if failure
+      Bindings::Private.check_error(
+        Bindings::Private.compact_cells(h3_set, out, out.size)
+      )
       out.read
     end
 
@@ -156,9 +176,11 @@ module H3
 
       out = H3Indexes.of_size(max_size)
       h3_set = H3Indexes.with_contents(compacted_set)
-      failure = Bindings::Private.uncompact(h3_set, compacted_set.size, out, max_size, resolution)
-
-      raise "Couldn't uncompact given indexes" if failure
+      Bindings::Private.check_error(
+        Bindings::Private.uncompact_cells(
+          h3_set, compacted_set.size, out, max_size, resolution
+        )
+      )
       out.read
     end
   end

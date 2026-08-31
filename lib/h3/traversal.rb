@@ -16,7 +16,9 @@ module H3
     #   91
     #
     # @return [Integer] Maximum k-ring size.
-    attach_function :max_kring_size, :maxKringSize, %i[k_distance], :int
+    def max_kring_size(k)
+      Bindings::Private.call_with_out(:int64, :max_grid_disk_size, k)
+    end
 
     # @!method distance(origin, h3_index)
     #
@@ -30,7 +32,9 @@ module H3
     #   5
     #
     # @return [Integer] Distance between indexes.
-    attach_function :distance, :h3Distance, %i[h3_index h3_index], :k_distance
+    def distance(origin, h3_index)
+      Bindings::Private.call_with_out(:int64, :grid_distance, origin, h3_index)
+    end
 
     # @!method line_size(origin, destination)
     #
@@ -49,7 +53,11 @@ module H3
     #   6
     #
     # @return [Integer] Number of hexagons found between indexes.
-    attach_function :line_size, :h3LineSize, %i[h3_index h3_index], :int
+    def line_size(origin, destination)
+      Bindings::Private.call_with_out(
+        :int64, :grid_path_cells_size, origin, destination
+      )
+    end
 
     # Derives H3 indexes within k distance of the origin H3 index.
     #
@@ -82,8 +90,7 @@ module H3
     def hex_range(origin, k)
       max_hexagons = max_kring_size(k)
       out = H3Indexes.of_size(max_hexagons)
-      pentagonal_distortion = Bindings::Private.hex_range(origin, k, out)
-      raise(ArgumentError, "Specified hexagon range contains a pentagon") if pentagonal_distortion
+      Bindings::Private.check_error(Bindings::Private.grid_disk_unsafe(origin, k, out))
       out.read
     end
 
@@ -111,7 +118,7 @@ module H3
     def k_ring(origin, k)
       max_hexagons = max_kring_size(k)
       out = H3Indexes.of_size(max_hexagons)
-      Bindings::Private.k_ring(origin, k, out)
+      Bindings::Private.check_error(Bindings::Private.grid_disk(origin, k, out))
       out.read
     end
 
@@ -136,8 +143,7 @@ module H3
     def hex_ring(origin, k)
       max_hexagons = max_hex_ring_size(k)
       out = H3Indexes.of_size(max_hexagons)
-      pentagonal_distortion = Bindings::Private.hex_ring(origin, k, out)
-      raise(ArgumentError, "The hex ring contains a pentagon") if pentagonal_distortion
+      Bindings::Private.check_error(Bindings::Private.grid_ring_unsafe(origin, k, out))
       out.read
     end
 
@@ -234,8 +240,9 @@ module H3
       max_out_size = max_kring_size(k)
       out = H3Indexes.of_size(max_out_size)
       distances = FFI::MemoryPointer.new(:int, max_out_size)
-      pentagonal_distortion = Bindings::Private.hex_range_distances(origin, k, out, distances)
-      raise(ArgumentError, "Specified hexagon range contains a pentagon") if pentagonal_distortion
+      Bindings::Private.check_error(
+        Bindings::Private.grid_disk_distances_unsafe(origin, k, out, distances)
+      )
 
       hexagons = out.read
       distances = distances.read_array_of_int(max_out_size)
@@ -271,7 +278,9 @@ module H3
       max_out_size = max_kring_size(k)
       out = H3Indexes.of_size(max_out_size)
       distances = FFI::MemoryPointer.new(:int, max_out_size)
-      Bindings::Private.k_ring_distances(origin, k, out, distances)
+      Bindings::Private.check_error(
+        Bindings::Private.grid_disk_distances(origin, k, out, distances)
+      )
 
       hexagons = out.read
       distances = distances.read_array_of_int(max_out_size)
@@ -300,8 +309,9 @@ module H3
     def line(origin, destination)
       max_hexagons = line_size(origin, destination)
       hexagons = H3Indexes.of_size(max_hexagons)
-      res = Bindings::Private.h3_line(origin, destination, hexagons)
-      raise(ArgumentError, "Could not compute line") if res.negative?
+      Bindings::Private.check_error(
+        Bindings::Private.grid_path_cells(origin, destination, hexagons)
+      )
       hexagons.read
     end
 
@@ -319,9 +329,9 @@ module H3
       h3_set = H3Indexes.with_contents(h3_set)
       max_out_size = h3_set.size * max_kring_size(k)
       out = H3Indexes.of_size(max_out_size)
-      if Bindings::Private.hex_ranges(h3_set, h3_set.size, k, out)
-        raise(ArgumentError, "One of the specified hexagon ranges contains a pentagon")
-      end
+      Bindings::Private.check_error(
+        Bindings::Private.grid_disks_unsafe(h3_set, h3_set.size, k, out)
+      )
 
       out.read
     end

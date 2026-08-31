@@ -9,6 +9,17 @@ RSpec.describe H3 do
     subject(:parent) { H3.parent(h3_index, parent_resolution) }
 
     it { is_expected.to eq(result) }
+
+    context "when the parent resolution is greater than the cell resolution" do
+      let(:parent_resolution) { 10 }
+
+      it "raises an identifiable H3 error" do
+        expect { parent }.to raise_error(H3::Error) { |error|
+          expect(error.code).to eq(12)
+          expect(error.name).to eq("E_RES_MISMATCH")
+        }
+      end
+    end
   end
 
   describe ".children" do

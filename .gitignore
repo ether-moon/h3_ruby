@@ -2,3 +2,4 @@ spec/examples.txt
 .yardoc
 *.gem
 coverage/
+/ext/h3/build/

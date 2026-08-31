@@ -17,7 +17,11 @@ module H3
     #   true
     #
     # @return [Boolean] True if indexes are neighbors
-    attach_predicate_function :neighbors?, :h3IndexesAreNeighbors, %i[h3_index h3_index], :bool
+    def neighbors?(origin, destination)
+      !Bindings::Private.call_with_out(
+        :int, :are_neighbor_cells, origin, destination
+      ).zero?
+    end
 
     # @!method unidirectional_edge_valid?(h3_index)
     #
@@ -30,10 +34,9 @@ module H3
     #   true
     #
     # @return [Boolean] True if H3 index is a valid unidirectional edge
-    attach_predicate_function :unidirectional_edge_valid?,
-                              :h3UnidirectionalEdgeIsValid,
-                              %i[h3_index],
-                              :bool
+    def unidirectional_edge_valid?(h3_index)
+      !Bindings::Private.is_valid_directed_edge(h3_index).zero?
+    end
 
     # @!method unidirectional_edge(origin, destination)
     #
@@ -47,10 +50,11 @@ module H3
     #   1626506486489284607
     #
     # @return [Integer] H3 edge index
-    attach_function :unidirectional_edge,
-                    :getH3UnidirectionalEdge,
-                    %i[h3_index h3_index],
-                    :h3_index
+    def unidirectional_edge(origin, destination)
+      Bindings::Private.call_with_out(
+        :uint64, :cells_to_directed_edge, origin, destination
+      )
+    end
 
     # @!method destination_from_unidirectional_edge(edge)
     #
@@ -63,10 +67,9 @@ module H3
     #   617700169961177087
     #
     # @return [Integer] H3 index
-    attach_function :destination_from_unidirectional_edge,
-                    :getDestinationH3IndexFromUnidirectionalEdge,
-                    %i[h3_index],
-                    :h3_index
+    def destination_from_unidirectional_edge(edge)
+      Bindings::Private.call_with_out(:uint64, :get_directed_edge_destination, edge)
+    end
 
     # @!method origin_from_unidirectional_edge(edge)
     #
@@ -79,10 +82,9 @@ module H3
     #   617700169958293503
     #
     # @return [Integer] H3 index
-    attach_function :origin_from_unidirectional_edge,
-                    :getOriginH3IndexFromUnidirectionalEdge,
-                    %i[h3_index],
-                    :h3_index
+    def origin_from_unidirectional_edge(edge)
+      Bindings::Private.call_with_out(:uint64, :get_directed_edge_origin, edge)
+    end
 
     # Derive origin and destination H3 indexes from edge.
     #
@@ -100,7 +102,7 @@ module H3
     def origin_and_destination_from_unidirectional_edge(edge)
       max_hexagons = 2
       out = H3Indexes.of_size(max_hexagons)
-      Bindings::Private.h3_indexes_from_unidirectional_edge(edge, out)
+      Bindings::Private.check_error(Bindings::Private.directed_edge_to_cells(edge, out))
       out.read
     end
 
@@ -119,7 +121,7 @@ module H3
     def unidirectional_edges_from_hexagon(origin)
       max_edges = 6
       out = H3Indexes.of_size(max_edges)
-      Bindings::Private.h3_unidirectional_edges_from_hexagon(origin, out)
+      Bindings::Private.check_error(Bindings::Private.origin_to_directed_edges(origin, out))
       out.read
     end
 
@@ -138,7 +140,9 @@ module H3
     # @return [Array<Array<Float>>] Edge boundary coordinates for a hexagon
     def unidirectional_edge_boundary(edge)
       geo_boundary = GeoBoundary.new
-      Bindings::Private.h3_unidirectional_edge_boundary(edge, geo_boundary)
+      Bindings::Private.check_error(
+        Bindings::Private.directed_edge_to_boundary(edge, geo_boundary)
+      )
       geo_boundary[:verts].take(geo_boundary[:num_verts]).map do |d|
         [rads_to_degs(d[:lat]), rads_to_degs(d[:lon])]
       end
