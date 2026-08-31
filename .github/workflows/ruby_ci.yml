@@ -50,6 +50,6 @@ jobs:
     - name: Install and load the packaged native library
       shell: bash
       run: |
-        gem install --local --ignore-dependencies --no-document ./h3-*.gem
+        gem install --no-document ./h3-*.gem
         cd "$(mktemp -d)"
         ruby -e 'require "h3"; spec = Gem.loaded_specs.fetch("h3"); library = H3::Bindings::Base.send(:native_library); abort library unless library.start_with?(spec.extension_dir + File::SEPARATOR); cell = H3.from_geo_coordinates([37.5665, 126.9780], 9); abort unless H3.valid?(cell); puts library'
