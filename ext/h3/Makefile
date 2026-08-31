@@ -1,6 +1,13 @@
-make:
-	cd src; cmake . -DCMAKE_POLICY_VERSION_MINIMUM=3.5 -DBUILD_SHARED_LIBS=true -DBUILD_FILTERS=OFF -DBUILD_BENCHMARKS=OFF -DENABLE_LINTING=OFF; make
+BUILD_DIR := build
+
+all:
+	cmake -S src -B $(BUILD_DIR) -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF -DBUILD_FILTERS=OFF -DBUILD_BENCHMARKS=OFF -DBUILD_FUZZERS=OFF -DBUILD_GENERATORS=OFF -DENABLE_LINTING=OFF
+	cmake --build $(BUILD_DIR) --target h3
+
 install:
-	: # do nothing, we'll load the lib directly
+	test -n "$(sitearchdir)"
+	cmake -E make_directory "$(sitearchdir)"
+	cmake -E copy_directory $(BUILD_DIR)/lib "$(sitearchdir)"
+
 clean:
-	: # do nothing, cleanup happens when gem uninstalled
+	cmake -E remove_directory $(BUILD_DIR)

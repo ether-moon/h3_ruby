@@ -1,9 +1,14 @@
 module H3
+  class MultiPolygonError < ArgumentError; end
+
   # Region functions.
   #
   # @see https://uber.github.io/h3/#/documentation/api-reference/regions
   module Regions
     extend H3::Bindings::Base
+
+    POLYGON_TO_CELLS_FLAGS = 0
+    private_constant :POLYGON_TO_CELLS_FLAGS
 
     # Derive the maximum number of H3 indexes that could be returned from the input.
     #
@@ -50,7 +55,13 @@ module H3
     # @return [Integer] Maximum number of hexagons needed to polyfill given area.
     def max_polyfill_size(geo_polygon, resolution)
       geo_polygon = geo_json_to_coordinates(geo_polygon) if geo_polygon.is_a?(String)
-      Bindings::Private.max_polyfill_size(build_polygon(geo_polygon), resolution)
+      Bindings::Private.call_with_out(
+        :int64,
+        :max_polygon_to_cells_size,
+        build_polygon(geo_polygon),
+        resolution,
+        POLYGON_TO_CELLS_FLAGS
+      )
     end
 
     # Derive a list of H3 indexes that fall within a given geo polygon structure.
@@ -106,7 +117,11 @@ module H3
       geo_polygon = geo_json_to_coordinates(geo_polygon) if geo_polygon.is_a?(String)
       max_size = max_polyfill_size(geo_polygon, resolution)
       out = H3Indexes.of_size(max_size)
-      Bindings::Private.polyfill(build_polygon(geo_polygon), resolution, out)
+      Bindings::Private.check_error(
+        Bindings::Private.polygon_to_cells(
+          build_polygon(geo_polygon), resolution, POLYGON_TO_CELLS_FLAGS, out
+        )
+      )
       out.read
     end
 
@@ -135,16 +150,31 @@ module H3
     #     ]
     #   ]
     #
-    # @return [Array<Array<Array<Float>>>] Nested array of coordinates.
+    # @raise [H3::MultiPolygonError] The cells cover multiple disconnected regions.
+    #
+    # @return [Array<Array<Array<Float>>>, nil] Nested coordinates, or nil for an empty set.
     def h3_set_to_linked_geo(h3_indexes)
+      linked_geo_polygon = nil
       h3_set = H3Indexes.with_contents(h3_indexes)
       linked_geo_polygon = LinkedGeoPolygon.new
-      Bindings::Private.h3_set_to_linked_geo(h3_set, h3_indexes.size, linked_geo_polygon)
+      Bindings::Private.check_error(
+        Bindings::Private.cells_to_linked_multi_polygon(
+          h3_set, h3_indexes.size, linked_geo_polygon
+        )
+      )
 
-      # The algorithm in h3 currently only handles 1 polygon
-      extract_linked_geo_polygon(linked_geo_polygon).first
+      polygons = extract_linked_geo_polygon(linked_geo_polygon).compact
+      return if polygons.empty?
+
+      if polygons.size > 1
+        raise MultiPolygonError,
+              "the given cells cover #{polygons.size} disjoint regions; " \
+              "h3_set_to_linked_geo returns a single polygon"
+      end
+
+      polygons.first
     ensure
-      Bindings::Private.destroy_linked_polygon(linked_geo_polygon)
+      Bindings::Private.destroy_linked_multi_polygon(linked_geo_polygon) if linked_geo_polygon
     end
 
     private
@@ -155,8 +185,6 @@ module H3
       geo_polygons = [linked_geo_polygon]
 
       until linked_geo_polygon[:next].null?
-        # Until the h3 algorithm is updated to handle multiple polygons,
-        # this block will never run.
         geo_polygons << linked_geo_polygon[:next]
         linked_geo_polygon = linked_geo_polygon[:next]
       end
@@ -208,36 +236,27 @@ module H3
     def build_polygon(input)
       outline, *holes = input
       geo_polygon = GeoPolygon.new
-      geo_polygon[:geofence] = build_geofence(outline)
-      len = holes.count
-      geo_polygon[:num_holes] = len
-      geofences = holes.map(&method(:build_geofence))
-      ptr = FFI::MemoryPointer.new(GeoFence, len)
-      fence_structs = 0.upto(geofences.count).map do |i|
-        GeoFence.new(ptr + i * GeoFence.size)
-      end
-      geofences.each_with_index do |geofence, i|
-        fence_structs[i][:num_verts] = geofence[:num_verts]
-        fence_structs[i][:verts] = geofence[:verts]
+      build_geofence_into(geo_polygon[:geofence], outline, geo_polygon)
+      geo_polygon[:num_holes] = holes.count
+      return geo_polygon if holes.empty?
+
+      ptr = geo_polygon.retain(FFI::MemoryPointer.new(GeoFence, holes.count))
+      holes.each_with_index do |hole, i|
+        build_geofence_into(GeoFence.new(ptr + i * GeoFence.size), hole, geo_polygon)
       end
       geo_polygon[:holes] = ptr
       geo_polygon
     end
 
-    def build_geofence(input)
-      geo_fence = GeoFence.new
-      len = input.count
-      geo_fence[:num_verts] = len
-      ptr = FFI::MemoryPointer.new(GeoCoord, len)
-      coords = 0.upto(len).map do |i|
-        GeoCoord.new(ptr + i * GeoCoord.size)
-      end
+    def build_geofence_into(geo_fence, input, owner)
+      geo_fence[:num_verts] = input.count
+      ptr = owner.retain(FFI::MemoryPointer.new(GeoCoord, input.count))
       input.each_with_index do |(lat, lon), i|
-        coords[i][:lat] = degs_to_rads(lat)
-        coords[i][:lon] = degs_to_rads(lon)
+        coord = GeoCoord.new(ptr + i * GeoCoord.size)
+        coord[:lat] = degs_to_rads(lat)
+        coord[:lon] = degs_to_rads(lon)
       end
       geo_fence[:verts] = ptr
-      geo_fence
     end
   end
 end

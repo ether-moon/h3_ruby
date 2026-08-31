@@ -6,19 +6,54 @@ on:
   pull_request:
     branches: [ master ]
 
+permissions:
+  contents: read
+
 jobs:
   test:
+    name: ${{ matrix.target }} / Ruby ${{ matrix.ruby }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
-        # Due to https://github.com/actions/runner/issues/849, we have to use quotes for '3.0'
-        ruby: ['2.7', '3.0', '3.1', '3.2', '3.3']
-    runs-on: ${{ matrix.os }}
+        include:
+          - runner: ubuntu-24.04
+            target: x86_64-linux-gnu
+            cpu: x86_64
+            os: linux
+            ruby: '4.0.6'
+          - runner: ubuntu-24.04-arm
+            target: aarch64-linux-gnu
+            cpu: aarch64
+            os: linux
+            ruby: '4.0.6'
+          - runner: macos-15
+            target: arm64-darwin
+            cpu: arm64
+            os: darwin
+            ruby: '4.0.6'
+          - runner: ubuntu-24.04
+            target: x86_64-linux-gnu
+            cpu: x86_64
+            os: linux
+            ruby: '3.4'
+    runs-on: ${{ matrix.runner }}
     steps:
     - uses: actions/checkout@v4
+      with:
+        submodules: recursive
+        persist-credentials: false
     - uses: ruby/setup-ruby@v1
       with:
         ruby-version: ${{ matrix.ruby }}
         bundler-cache: true # runs 'bundle install' and caches installed gems automatically
+    - name: Verify runner architecture
+      run: ruby -rrbconfig -e 'cpu, os = ARGV; abort RbConfig::CONFIG.inspect unless RbConfig::CONFIG["host_cpu"] == cpu && RbConfig::CONFIG["host_os"].include?(os)' '${{ matrix.cpu }}' '${{ matrix.os }}'
     - run: bundle exec rake
+    - name: Build gem
+      run: gem build h3.gemspec
+    - name: Install and load the packaged native library
+      shell: bash
+      run: |
+        gem install --no-document ./h3-*.gem
+        cd "$(mktemp -d)"
+        ruby -e 'require "h3"; spec = Gem.loaded_specs.fetch("h3"); library = H3::Bindings::Base.send(:native_library); abort library unless library.start_with?(spec.extension_dir + File::SEPARATOR); cell = H3.from_geo_coordinates([37.5665, 126.9780], 9); abort unless H3.valid?(cell); puts library'

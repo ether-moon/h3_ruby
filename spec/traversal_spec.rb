@@ -349,6 +349,17 @@ RSpec.describe H3 do
     subject(:h3_line_size) { H3.line_size(origin, destination) }
 
     it { is_expected.to eq(result) }
+
+    context "when a cell is invalid" do
+      let(:origin) { "fffffffffffffff".to_i(16) }
+
+      it "raises an identifiable H3 error" do
+        expect { h3_line_size }.to raise_error(H3::Error) { |error|
+          expect(error.code).to eq(5)
+          expect(error.name).to eq("E_CELL_INVALID")
+        }
+      end
+    end
   end
 
   describe ".line" do

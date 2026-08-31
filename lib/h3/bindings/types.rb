@@ -14,8 +14,12 @@ module H3
 
         class << self
           def to_native(value, _context)
-            failure unless value.is_a?(Integer) && RES_RANGE.cover?(value)
+            failure unless valid?(value)
             value
+          end
+
+          def valid?(value)
+            value.is_a?(Integer) && RES_RANGE.cover?(value)
           end
 
           private

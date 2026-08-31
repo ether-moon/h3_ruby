@@ -3,9 +3,9 @@ require_relative "lib/h3/version"
 Gem::Specification.new do |spec|
   spec.name     = "h3"
   spec.version  = H3::VERSION
-  spec.licenses = ["MIT"]
+  spec.licenses = ["MIT", "Apache-2.0"]
   spec.summary  = "C Bindings for Uber's H3 library"
-  spec.homepage = "https://github.com/seanhandley/h3_ruby"
+  spec.homepage = "https://github.com/ether-moon/h3_ruby"
   spec.authors  = ["Sean Handley", "Xavier Noria", "Lachlan Laycock"]
   spec.email    = "sean.handley@gmail.com"
 

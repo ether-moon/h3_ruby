@@ -39,7 +39,7 @@ RSpec.describe H3 do
 
   describe ".hex_area_km2" do
     let(:resolution) { 2 }
-    let(:result) { 86745.85403 }
+    let(:result) { 86801.7803989972 }
 
     subject(:hex_area_km2) { H3.hex_area_km2(resolution) }
 
@@ -48,7 +48,7 @@ RSpec.describe H3 do
 
   describe ".hex_area_m2" do
     let(:resolution) { 2 }
-    let(:result) { 86745854035.0 }
+    let(:result) { 86801780398.99731 }
 
     subject(:hex_area_m2) { H3.hex_area_m2(resolution) }
 
@@ -57,7 +57,7 @@ RSpec.describe H3 do
 
   describe ".edge_length_km" do
     let(:resolution) { 2 }
-    let(:result) { 158.2446558 }
+    let(:result) { 182.5129565 }
 
     subject(:edge_length_km) { H3.edge_length_km(resolution) }
 
@@ -66,7 +66,7 @@ RSpec.describe H3 do
       
   describe ".edge_length_m" do
     let(:resolution) { 2 }
-    let(:result) { 158244.6558 }
+    let(:result) { 182512.9565 }
 
     subject(:edge_length_m) { H3.edge_length_m(resolution) }
 

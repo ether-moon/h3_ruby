@@ -26,6 +26,11 @@ module H3
         layout :geofence, GeoFence,
                :num_holes, :int,
                :holes, :pointer # array of GeoFence structs
+
+        def retain(memory)
+          (@retained ||= []) << memory
+          memory
+        end
       end
 
       class GeoMultiPolygon < FFI::Struct
